@@ -1,4 +1,4 @@
-name: 发布单文件 EXE
+name: 发布单文件
 
 on:
   push:
@@ -20,10 +20,7 @@ jobs:
 
     - name: 安装 .NET SDK
       uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: 10.0.0   # 可根据项目需要调整版本
-
-    - name: 发布单文件可执行文件
+    - name: 发布单文件
       run: |
         dotnet publish ${{ env.Project_Path }} `
           -c Release `
