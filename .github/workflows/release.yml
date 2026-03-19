@@ -1,0 +1,58 @@
+name: 发布 .NET 10 WinForms 应用 (ComfyUIDownloader)
+
+on:
+  push:
+    branches: [ "master" ]
+    tags: [ "v*" ]   # 例如 v1.0.0, v2.1-beta 等
+
+env:
+  PROJECT_PATH: 'ComfyUIDownloader/ComfyUIDownloader.csproj'   # 已修改为你的项目路径
+  CONFIGURATION: 'Release'
+  DOTNET_VERSION: '10.0.201'   # 使用你指定的 SDK 版本
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    permissions:
+      contents: write   # 允许创建 Release 和上传附件
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: 还原依赖
+        run: dotnet restore ${{ env.PROJECT_PATH }}
+
+      - name: 构建并发布应用
+        run: |
+          dotnet publish ${{ env.PROJECT_PATH }} `
+            -c ${{ env.CONFIGURATION }} `
+            -o ./publish `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            --self-contained false   # 若需要独立运行（不依赖用户安装 .NET 运行时），改为 true 并添加 -r win-x64
+
+      - name: 打包发布文件
+        run: |
+          Compress-Archive -Path ./publish/* -DestinationPath ./ComfyUIDownloader.zip   # 压缩包自定义名称
+
+      # 推送标签时自动创建 Release 并上传压缩包
+      - name: 创建 Release 并上传附件
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ./ComfyUIDownloader.zip
+          generate_release_notes: true
+
+      # 推送 main 分支时，将构建产物作为临时工件上传（可在 Actions 页面下载）
+      - name: 上传构建产物（供临时下载）
+        if: github.ref == 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/')
+        uses: actions/upload-artifact@v4
+        with:
+          name: ComfyUIDownloader-${{ github.sha }}
+          path: ./publish/
